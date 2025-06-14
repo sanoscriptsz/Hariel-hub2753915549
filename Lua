@@ -1,0 +1,185 @@
+--[[
+	==================================================================
+	=                        SANOCHEAT HUB                   =
+	==================================================================
+	=   DESCRIÇÃO: Interface gráfica para carregar scripts de jogos. =
+	=   CRIADOR: SANO (baseado no script do usuário)               =
+	=   VERSÃO: 1.0                                                  =
+	==================================================================
+--]]
+
+-- Tabela de Configuração dos Scripts
+local Scripts = {
+	{
+		Name = "Blox Fruits", -- Nome para exibição no botão
+		PlacesIds = {2753915549, 4442272183, 7449423635},
+		Path = "BloxFruits.luau"
+	},
+	{
+		Name = "Meme Sea", -- Nome para exibição no botão
+		PlacesIds = {10260193230},
+		Path = "MemeSea.luau"
+	}
+	-- Adicione mais jogos aqui se necessário
+}
+
+-- Módulo de carregamento (Fetcher)
+local fetcher, urls = {}, {}
+
+urls.Owner = "https://raw.githubusercontent.com/sanoscriptsz/";
+urls.Repository = `{urls.Owner}Scripts/refs/heads/main/`;
+urls.Translator = `{urls.Repository}Translator/`;
+urls.Utils = `{urls.Repository}Utils/`;
+
+do
+	local _ENV = (getgenv or getrenv or getfenv)()
+	
+	if _ENV.rz_error_message then
+		_ENV.rz_error_message:Destroy()
+	end
+	
+	local identifyexecutor = identifyexecutor or (function() return "Unknown" end)
+	
+	local function CreateMessageError(Text)
+		_ENV.loadedFarm = nil
+		_ENV.OnFarm = false
+		
+		local Message = Instance.new("Message", workspace)
+		Message.Text = string.gsub(Text, urls.Owner, "")
+		_ENV.rz_error_message = Message
+		
+		warn(Text) -- Usar 'warn' em vez de 'error' para não parar a execução da GUI
+	end
+	
+	local function formatUrl(Url)
+		for string, path in urls do
+			if Url:find("{" .. string .. "}") then
+				return Url:gsub("{" .. string .. "}", path)
+			end
+		end
+		return Url
+	end
+	
+	function fetcher.get(Url)
+		local success, response = pcall(function()
+			return game:HttpGet(formatUrl(Url))
+		end)
+		
+		if success and response then
+			return response
+		else
+			CreateMessageError(`[1] [{identifyexecutor()}] falha ao buscar URL: {Url}\n>> {response} <<`)
+		end
+	end
+	
+	function fetcher.load(Url, concat)
+		local raw = fetcher.get(Url)
+		if not raw then return end -- Para se o fetch falhar
+		
+		raw = raw .. (if concat then concat else "")
+		local execute, err = loadstring(raw)
+		
+		if type(execute) ~= "function" then
+			CreateMessageError(`[2] [{identifyexecutor()}] erro de sintaxe: {Url}\n>> {err} <<`)
+		else
+			return execute
+		end
+	end
+end
+
+-- Função para carregar o script de um jogo específico
+local function LoadScript(Data, ...)
+	local success, result = pcall(function()
+		local scriptToLoad = fetcher.load("{Repository}Games/" .. Data.Path)
+		if scriptToLoad then
+			return scriptToLoad(fetcher, ...)
+		end
+	end)
+
+	if not success then
+		warn("Falha ao executar o script:", result)
+	end
+end
+
+
+-- Criação da Interface Gráfica (GUI)
+local function CreateGUI()
+	-- Prevenção de múltiplas GUIs
+	if game.CoreGui:FindFirstChild("RedzHubLoader") then
+		game.CoreGui.SANO HUBLoader:Destroy()
+	end
+
+	-- Componentes da GUI
+	local ScreenGui = Instance.new("ScreenGui")
+	ScreenGui.Name = "RedzHubLoader"
+	ScreenGui.Parent = game.CoreGui
+	ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+	local MainFrame = Instance.new("Frame")
+	MainFrame.Name = "MainFrame"
+	MainFrame.Parent = ScreenGui
+	MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+	MainFrame.BorderColor3 = Color3.fromRGB(120, 120, 255)
+	MainFrame.BorderSizePixel = 2
+	MainFrame.Position = UDim2.new(0.015, 0, 0.25, 0)
+	MainFrame.Size = UDim2.new(0, 220, 0, 200)
+	MainFrame.Active = true
+	MainFrame.Draggable = true -- Permite mover a janela
+
+	local TitleLabel = Instance.new("TextLabel")
+	TitleLabel.Name = "Title"
+	TitleLabel.Parent = MainFrame
+	TitleLabel.BackgroundColor3 = Color3.fromRGB(120, 120, 255)
+	TitleLabel.Size = UDim2.new(1, 0, 0, 30)
+	TitleLabel.Font = Enum.Font.SourceSansBold
+	TitleLabel.Text = "Redz Hub"
+	TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	TitleLabel.TextSize = 18
+
+	local ScriptsList = Instance.new("UIListLayout")
+	ScriptsList.Parent = MainFrame
+	ScriptsList.Padding = UDim.new(0, 10)
+	ScriptsList.SortOrder = Enum.SortOrder.LayoutOrder
+	ScriptsList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	ScriptsList.ItemLineAlignment = Enum.ItemLineAlignment.Center
+	ScriptsList.Padding = UDim.new(0, 5)
+	ScriptsList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	ScriptsList.VerticalAlignment = Enum.VerticalAlignment.Top
+	ScriptsList.StartCorner = "TopLeft"
+	ScriptsList.Padding = UDim.new(0, 8)
+
+	-- Cria um botão para cada script na tabela
+	for i, data in ipairs(Scripts) do
+		local GameButton = Instance.new("TextButton")
+		GameButton.Name = data.Name .. "Button"
+		GameButton.Parent = MainFrame
+		GameButton.LayoutOrder = i
+		GameButton.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+		GameButton.BorderColor3 = Color3.fromRGB(80, 80, 90)
+		GameButton.BorderSizePixel = 1
+		GameButton.Size = UDim2.new(0.85, 0, 0, 35)
+		GameButton.Font = Enum.Font.SourceSans
+		GameButton.Text = data.Name
+		GameButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+		GameButton.TextSize = 16
+		
+		-- Evento de clique do botão
+		GameButton.MouseButton1Click:Connect(function()
+			print(`Carregando script para: {data.Name}`)
+			MainFrame.BorderColor3 = Color3.fromRGB(100, 255, 100) -- Feedback visual
+			LoadScript(data)
+			task.wait(0.5)
+			MainFrame.BorderColor3 = Color3.fromRGB(120, 120, 255) -- Retorna à cor normal
+		end)
+	end
+
+	-- Ajustar o tamanho do frame principal com base no número de botões
+	local totalButtons = #Scripts
+	local frameHeight = 40 + (totalButtons * 43) -- Altura do título + (altura do botão + padding) * n_botões
+	MainFrame.Size = UDim2.new(0, 220, 0, frameHeight)
+	ScriptsList.Padding = UDim.new(0, 40) -- Padding para o título
+end
+
+
+
+	
